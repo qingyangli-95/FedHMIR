@@ -1,0 +1,26 @@
+window_size: 10 trees: 10 depth:5
+params:{'seed_idx': 0, 'window_size': 10, 'n_trees': 10, 'depth': 5, 'n_actions': 5, 'n_properties': 12, 'n_nodes': 63, 'LR_A': 0.001, 'LR_C': 0.002, 'GAMMA': 0.9, 'TAU': 0.01, 'memory_capacity': 10000, 'batch_size': 32, 'a_bound': 0.5, 'exp_num': 1, 'log_path': './data\\results\\exp-federated--031', 'seed': 1, 'data_path': './data/Gait_authentication_preprocess', 'client_num': 2, 'out_path': './data\\results\\exp-federated--031\\train'}
+precisions:0.7107310315897523
+aucs:0.6208859739813563
+recalls:0.405694952579405
+f1scores:0.5163323574512773
+fprs:0.16392300461669285
+fnrs:0.594305047420595
+
+agent0:
+precisions:[0.6912827848491597]
+aucs:[0.6055261610817168]
+recalls:[0.37918871252204583]
+f1scores:[0.4896682039291707]
+fprs:[0.1681363903586126]
+fnrs:[0.6208112874779541]
+
+agent1:
+precisions:[0.7301792783303448]
+aucs:[0.6362457868809956]
+recalls:[0.43220119263676426]
+f1scores:[0.5429965109733838]
+fprs:[0.1597096188747731]
+fnrs:[0.5677988073632357]
+
+
