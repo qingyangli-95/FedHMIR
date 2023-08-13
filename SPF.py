@@ -281,7 +281,7 @@ class TreeModel:
             masses.append(mass)
         return masses
 
-    def score_on_masses(self, masses):  #
+    def score_on_masses(self, masses):
         scores = []
         consistencies = []
         for masslist in masses:
@@ -321,7 +321,7 @@ class TreeModel:
             return avg_score, consistency, scores_
         return avg_score, consistency
 
-    def sigmoid(self, x, mass_mv):  # 论文
+    def sigmoid(self, x, mass_mv):
         if mass_mv.var < 1e-10:
             mass_mv(0)
         # gamma = np.sqrt(3 * mass_mv.var) / np.pi
@@ -359,8 +359,7 @@ class TreeModel:
         self.update_tree(node.left)
         self.update_tree(node.right)
 
-    # 根据fit的树来预测
-    # 改进：同时得到每棵树的结果的information_entropy，与最终预测结果和feedback的比较，一起作为global_reward
+
     def predict(self, x, cut=True,
                 scale_score = False,
                 return_consistency=False):
@@ -378,13 +377,6 @@ class TreeModel:
         pre_list = []  # 每棵树的预测结果，和groundtruth作比较，作为regional_reward
         for s in score_list:
             pre_list.append(int(s > self.threshold))
-        #     if s > self.threshold:
-        #         num1 += 1
-        #     else:
-        #         num0 += 1
-        # p_1 = num0 / (num0 + num1)
-        # p_2 = num1 / (num0 + num1)
-        # information_entropy = - (p_1 * np.log(p_1) + p_2 * np.log(p_2))
 
         if return_consistency:
             score = [score, consistency]
@@ -393,67 +385,6 @@ class TreeModel:
         else:
             return int(score > self.threshold), pre_list
 
-
-    # def expand_node(self, node, g, r):
-    #     if node.is_leaf:
-    #         adjust_rate = 0.5
-    #         node.inst_ref -= adjust_rate * (g + r) * (2 ** node.level)
-    #         return self
-    #     node.is_terminal = False
-    #     node.left.is_terminal = True
-    #     node.right.is_terminal = True
-    #     return self
-    #
-    # def collapse_node(self, node, g, r):
-    #     if node.level <= self.min_depth:
-    #         adjust_rate = 0.5
-    #         node.inst_ref += adjust_rate * (g + r) * (2 ** node.level)
-    #         return self
-    #     parent = node.parent
-    #     if node.id == parent.left.id:
-    #         brother = parent.right
-    #     else:
-    #         brother = parent.left
-    #     terminals = []
-    #     self.traverse_record_terminals(brother, terminals)
-    #     for aterm in terminals:
-    #         aterm.is_terminal = False
-    #     node.is_terminal = False
-    #     parent.is_terminal = True
-    #     return self
-
-    def expand_node(self, node, t, y, mass_mv):
-        if node.is_leaf:
-            return False
-        gl, rl = self.node_derivative(node.left, t, y, mass_mv)
-        gr, rr = self.node_derivative(node.right, t, y, mass_mv)
-        if rl < -EPSILON and rr < -EPSILON:
-            node.is_terminal = False
-            node.left.is_terminal = True
-            node.right.is_terminal = True
-            return True
-        return False
-
-    def collapse_node(self, node, t, y, mass_mv):
-        if node.level <= self.min_depth:
-            return False
-        parent = node.parent
-        if node.id == parent.left.id:
-            brother = parent.right
-        else:
-            brother = parent.left
-        terminals = []
-        self.traverse_record_terminals(brother, terminals)
-        derivatives = np.array([self.node_derivative(aterm, t, y, mass_mv)
-                                for aterm in terminals])
-        rs = derivatives[:, 1]
-        if all(rs > EPSILON):
-            for aterm in terminals:
-                aterm.is_terminal = False
-            node.is_terminal = False
-            parent.is_terminal = True
-            return True
-        return False
 
     def node_derivative(self, node, t, y, mass_mv):
         mass = node.inst_ref * (2 ** node.level)
@@ -477,7 +408,6 @@ class TreeModel:
         ni = nas[:, 0]
         ai = nas[:, 1]
         regional_derivative = ni - (ai + ni) * s
-        # adjust_rate = 0.1
 
         actions = np.squeeze(actions)
         # print(np.shape(terminals))
@@ -485,43 +415,6 @@ class TreeModel:
         for action, node, g, r, amv in zip(actions, terminals, global_derivative, regional_derivative, self.mass_mv):
             node_id.append(node.id)
             node.inst_ref += action * (g + r) * (2 ** node.level)
-            # if action == 0: # stay
-            #     continue
-            # # if action == 'increase':
-            # if action == 1: # increase
-            #     # continue
-            #     # node.inst_ref += adjust_rate * (g + r) * (2 ** node.level)
-            #     node.inst_ref += (g + r) * (2 ** node.level)
-            #
-            # if action == 2: # decrease
-            #     # continue
-            #     # node.inst_ref -= adjust_rate * (g + r) * (2 ** node.level)
-            #     node.inst_ref -= (g + r) * (2 ** node.level)
-            #
-            # if action == 3: # expand
-            #     try_expand = self.expand_node(node, t, y, amv)
-            #     # self.expand_node(node, g, r)
-            #     if not try_expand:
-            #         # node.inst_ref -= adjust_rate * (2 ** node.level)
-            #         # node.inst_ref -= adjust_rate * (g + r) * (2 ** node.level)
-            #         continue
-            # if action == 4: # collapse
-            #     try_collapse = self.collapse_node(node, t, y, amv)
-            #     # self.collapse_node(node, g, r)
-            #     if not try_collapse:
-            #         # node.inst_ref += adjust_rate * (2 ** node.level)
-            #         # node.inst_ref += adjust_rate* (g + r) * (2 ** node.level)
-            #         continue
-        return self, node_id
-
-    def update_structure_no_actions(self, x, label):
-        node_id = []
-        if label == 0:
-            feed_type = 'norm_feed'
-        else:
-            feed_type = 'abno_feed'
-        terminals = [self.traverse(atree, x, update_type=feed_type) for atree in self.trees]
-        y, consistency, s = self.score_on_nodes(terminals, return_score_list=True, update_mass=False)
         return self, node_id
 
     def __str__(self):
@@ -535,78 +428,3 @@ class TreeModel:
 
         return res
 
-def compare_tree(tree1, tree2):
-    # print(tree1)
-    # print(tree2)
-    # print(compare_nodes(tree1, tree2))
-    # print("\n")
-    if tree1 is None:
-        if tree2 is None:
-            return True
-        else:
-            return False
-    elif tree2 is None:
-        return False
-    if not compare_nodes(tree1, tree2):
-        return False
-    if not compare_tree(tree1.left, tree2.left):
-        return False
-    if not compare_tree(tree1.right, tree2.right):
-        return False
-    return True
-
-
-def compare_trees(trees1, trees2):
-    for t1, t2 in zip(trees1, trees2):
-        if not compare_tree(t1, t2):
-            return False
-    return True
-
-def compare_model(obj1, obj2):
-    attrs1 = list(filter(lambda a: not a.startswith("__") and not callable(getattr(obj1, a)), dir(obj1)))
-    attrs2 = list(filter(lambda a: not a.startswith("__") and not callable(getattr(obj2, a)), dir(obj2)))
-    assert attrs1 == attrs2
-    for attr in attrs1:
-        # print(attr)
-        if attr == "trees":
-            if not compare_trees(obj1.trees, obj2.trees):
-                return False
-        elif attr == "rng":
-            continue
-        elif getattr(obj1, attr) != getattr(obj2, attr):
-            print(attr)
-            print(getattr(obj1, attr), getattr(obj2, attr))
-            return False
-
-    return True
-
-def Tree_test():
-    models = [TreeModel(n_trees=2, max_depth=2, min_depth=2, terminal_depth=2, window_size=10, seed=10)
-             for _ in range(2)]
-
-    X = np.random.rand(1, 494)
-    for m in models:
-        m.fit(X)
-        np.random.randn(10)
-
-    # print(getattr(models[0], "_TreeModel__n_nodes"))
-    # print(getattr(models[1], "_TreeModel__n_nodes"))
-
-    print(models[0])
-    print(models[1])
-    print(compare_model(*models))
-
-
-# def char2int(c):
-#     return ord(c) - ord("a") + 1
-#
-# # compute the dimension of features in dataset, from xls RZ to number
-# def compute_dim():
-#     r = char2int("r")
-#     z = char2int("z")
-#     print(r*26 + z)
-
-
-if __name__ == "__main__":
-    Tree_test()
-    # compute_dim()

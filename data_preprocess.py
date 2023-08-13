@@ -67,7 +67,7 @@ def load_data(file_list,
         test_label[k].extend([1] * dlen)
 
 
-        index = [i for i in range(len(train_data[k]))]  # 初始树构建打乱
+        index = [i for i in range(len(train_data[k]))]
         # np.random.shuffle(index)
         rng.shuffle(index)
         train_data_shuffle = []
@@ -78,7 +78,7 @@ def load_data(file_list,
         train_data[k] = train_data_shuffle
         train_label[k] = train_label_shuffle
 
-        index = [i for i in range(len(test_data[k]))]  # update数据打乱
+        index = [i for i in range(len(test_data[k]))]
         # np.random.shuffle(index)
         rng.shuffle(index)
         test_data_shuffle = []
@@ -97,7 +97,7 @@ def make_dirs(paths):
         if not os.path.exists(path):
             os.makedirs(path)
 
-def get_log_path(par_path, exp_name):
+def  get_log_path(par_path, exp_name):
     exp_name = "exp-" + exp_name + "-"
     log_path = None
     exps = os.listdir(par_path)
@@ -130,7 +130,7 @@ def get_train_dataset(data_root, client_num, seed=None):
         for ind in indices ]
     return file_list
 
-def get_test_dataset(data_root):
+def get_server_test_dataset(data_root):
     dataset_size = len(os.listdir(data_root))
     if dataset_size <= 0:
         raise ValueError("dataset_size <= 0")
@@ -154,88 +154,3 @@ def set_seed(seed):
     import tensorflow as tf
     tf.random.set_seed(seed)
     np.random.seed(seed)
-
-def rl_step(model, tx, ty, observations, step, res, RL):
-    mms = MinMaxScaler()
-    actions = []
-    node_ids = []
-
-    uncertainty = model.predict(tx, return_consistency=True, cut=False)
-    # print(uncertainty)
-    if np.mean(np.abs(uncertainty[1])) - 0.5 < 0.3:  # propose feedback (can be changed)
-    # if 1:
-    # if np.random.rand() <0.7:
-        print('RL')
-        for observation in observations:
-            actions.append(RL.choose_action(observation))
-        # print("action")
-        # print(np.shape(actions))
-        _, node_id = model.update_structure(tx, actions, int(ty))
-        node_ids.append(node_id)
-
-        structure_ = []
-        for atree in model.trees:
-            structure_.append(model.record_tree(atree))
-        observations_ = mms.fit_transform(structure_)  # normalize the tree structure
-        # print(observations_)
-        t = 0
-        alpha = 0.9  # reward = alpha * global_reward + (1 - alpha) * regional_reward
-        for observation, action, observation_ in zip(observations, actions, observations_):
-            predy, pre_list = model.predict(tx, cut=True)
-
-            if predy == int(ty):
-                global_reward = 1
-            else:
-                global_reward = -1
-            if pre_list[t] == int(ty):
-                regional_reward = 1
-            else:
-                regional_reward = -1
-            t += 1
-            reward = alpha * global_reward + (1 - alpha) * regional_reward
-
-            RL.store_transition(observation, action, reward, observation_)
-            step += 1
-            if step > 200 and (step % 10 == 0):
-                # not learn model, test what else performance difference
-                RL.learn()
-                pass
-        observations = observations_
-    predy, pre_list = model.predict(tx, cut=True)
-
-    res.append(predy)
-    return observations, res, actions, step, node_ids
-
-def test_step(model, tx, ty, observations, step, res, agent):
-    mms = MinMaxScaler()
-    actions = []
-    node_ids = []
-    print('RL test')
-
-    uncertainty = model.predict(tx, return_consistency=True, cut=False)
-    # if np.mean(np.abs(uncertainty[1])) - 0.5 < 0.3:
-    # observations_ = None
-    # if False:
-
-    # seed0 = np.random.randint(0, 1e5, 1)
-    # set_seed(1)
-    for observation in observations:
-        actions.append(agent.choose_action(observation))
-    # actions = [1 for _ in range(10)]
-    # set_seed(seed0)
-
-    _, node_id = model.update_structure(tx, actions, int(ty))
-    node_ids.append(node_id)
-
-    structure_ = []
-    for atree in model.trees:
-        structure_.append(model.record_tree(atree))
-    observations_ = mms.fit_transform(structure_)  # try to normalize the tree structure
-
-    for observation, action, observation_ in zip(observations, actions, observations_):
-        predy, pre_list = model.predict(tx, cut=True)
-
-    predy, pre_list = model.predict(tx, cut=True)
-    observations = observations_
-    res.append(predy)
-    return observations, res, actions, step, node_ids
